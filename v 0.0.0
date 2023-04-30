@@ -29,7 +29,7 @@ def mousePoints(event,x,y,flags,params):
 
 
 # Criando os caminhos das imagens:
-videopath = "insert here the video to be analyzed path"
+videopath = r'C:INSERIR CAMINHO DO VÍDEO'
 
 
 # Definindo a variável de vídeo, a matriz do kernel, o contador de frames e o total de frames:
@@ -65,27 +65,24 @@ while True:                          # É necessário um loop para rodar um víd
   # Se estiver no penúltimo frame, criar a máscara no espectro e depois redimensionar para cm: 
   if count == totalFrame-1:
 
-    np.savetxt(varpath+str(cannyMin*maxMinRatio)+'-'+str(cannyMin)+'.txt', variMediana, delimiter=' ')
 
-
+    # Depois de processados todos os frames, exceto o último, o usuário deverá clicar em dois pontos na tela:
+    # 1 - origem dos pontos (0,0)
+    # 2 - ponto (0, 5cm)
     while counterCircles<2:
        cv2.setMouseCallback("Video Original", mousePoints)
        cv2.waitKey(1)
 
-
+    # Deois de clicados os pontos, o código aplica a escala ao vídeo, transformando pixels em cm:
     else:
        ptsScale = np.linalg.norm(circles[0] - circles[1])/5*2    # Calculando a distância entre os dois pontos da escala em px, dividindo por 5cm e multiplicado pelo fator de diminuição aplicado aos vídeos
        print(ptsScale)
 
-       img_sum[img_sum> 25]=0
-       img_sum[img_sum< 1]=0
+       img_sum[img_sum> 25]=0                 # Deletando Pixels com valor de intensidade acima de 25 (baseado em análises anteriores)
+       img_sum[img_sum< 1]=0                  # Deletando Pixels com valor inferior a 1
        mat_sum = np.asarray(img_sum)
 
  
-       for i in range (5,95):
-        deteccoesColuna = img_sum[:,int(img.shape[1]/100*i)]                                                        # Cria um vetor que representa o valor dos pixels na posição i
-        posicaoDeteccoes = np.linspace(1,int(img.shape[0]),int(img.shape[0]),int(img.shape[0]))                     # Cria uma lista para representar a posição de onde estão vindo os sinais em y
-        # plt.plot(deteccoesColuna+img.shape[1]*i/100/ptsScale,(int(img.shape[0])-posicaoDeteccoes)/ptsScale)         # Plotar as detecções da posição i
 
        # Obtendo as variáveis a serem plotadsa no Gráfico Final:
        x = np.linspace(0, img.shape[1], img.shape[1])-(circles[0,0]*2)                # X inicia onde ocorrre o primeiro clique do mouse
@@ -102,7 +99,7 @@ while True:                          # É necessário um loop para rodar um víd
 
 
        # Criando o gráfico: 
-       fig, ax = plt.subplots()            
+       fig, ax = plt.subplots(1,2)            
 
 
        # Setando as configurações do gráfico:
@@ -112,8 +109,15 @@ while True:                          # É necessário um loop para rodar um víd
       # Criando um mapa de cores com base no valor dos pixels da imagem somada:
        cmap = copy(plt.cm.Blues)
        levels = np.linspace(1, 20, 13)
-       ax.contourf(x/ptsScale, y/ptsScale, z, cmap=cmap, levels=levels)    # Plotando a mancha das lâminas detectadasc como um mapa de cores
+       ax[0,1].contourf(x/ptsScale, y/ptsScale, z, cmap=cmap, levels=levels)                                        # Plotando a mancha das lâminas detectadasc como um mapa de cores
+       
 
+
+      # Criando um gráfico com detecções a cada 1/100 de largura do vídeo para análise do comportamento da lâmina: 
+       for i in range (5,95):
+        deteccoesColuna = img_sum[:,int(img.shape[1]/100*i)]                                                         # Cria um vetor que representa o valor dos pixels na posição i
+        posicaoDeteccoes = np.linspace(1,int(img.shape[0]),int(img.shape[0]),int(img.shape[0]))                      # Cria uma lista para representar a posição de onde estão vindo os sinais em y
+        ax[0,0].plt.plot(deteccoesColuna+img.shape[1]*i/100/ptsScale,(int(img.shape[0])-posicaoDeteccoes)/ptsScale)  # Plotar as detecções da posição i
 
        plt.show()
  
@@ -146,3 +150,4 @@ while True:                          # É necessário um loop para rodar um víd
   
   if cv2.waitKey(1) & 0xFF ==ord ('q'):                               # Se a tecla "q" for apertada, o loop se encerra
     break
+
