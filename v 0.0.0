@@ -1,0 +1,148 @@
+from copy import copy
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+
+# Criando função "getContours" para apresentar os contornos Detectados na imagem original
+def getContours(imgInput, imgOutput):  
+    contours, hierarchy = cv2.findContours(imgInput,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) # Definindo os contornos (Avaliar parâmetros depois)
+    for cnt in contours:
+      cv2.drawContours(imgOutput, cnt, -1, (0,255,0),3) # Definindo onde desenhar, quais contornos desenhar, a cor a eespessura
+
+
+
+# Criando uma função "mousePoints" que plota circulos com coordenadas X e Y quando o click na tela ocorre:
+circles = np.zeros((2,2),np.int32)         # Criando uma matriz de tamanho 2x2 de zeros em números iteiros
+counterCircles = 0                       # Contador de número de pontos clicados (circulos)
+
+def mousePoints(event,x,y,flags,params): 
+    global counterCircles
+    if event == cv2.EVENT_LBUTTONDOWN:   # Definindo evento com o clique com o botão esquerdo do mouse
+        
+        circles[counterCircles] = x, y
+        counterCircles = counterCircles + 1
+        print (circles)
+
+        
+
+
+# Criando os caminhos das imagens:
+videopath = "insert here the video to be analyzed path"
+
+
+# Definindo a variável de vídeo, a matriz do kernel, o contador de frames e o total de frames:
+cap = cv2.VideoCapture(videopath) 
+kernel = np.ones((1,1),np.uint8)                      # Matriz com 7x7 de tamanho preechida de 1's para aplicar na função de dilatação das linhas
+cannyMin = 25
+maxMinRatio = 2
+count = 0                                             # Contador de frames
+totalFrame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))   # Indicador do número total de frames
+
+
+
+# Rodando o Vídeo como um loop da variável "cap"
+while True:                          # É necessário um loop para rodar um vídeo
+
+  sucess, img = cap.read()           # Salvar na variável "img" o que a função cap está lendo em "cap"
+
+  # Aplicando filtros e detecção de bordas:
+  imgGray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)                # Aplica filtro preto e branco no vídeo
+  imgBlur = cv2.GaussianBlur(imgGray,(19,19),0)                 # Aplicando filtro Gaussiano borrado à imagem preto e branca
+  imgCanny = cv2.Canny(imgBlur,cannyMin,cannyMin*maxMinRatio)   # Aplicando deteção de bordas de Canny (1981)
+  imgDilated = cv2.dilate(imgCanny,kernel,iterations=7)         # dilatação das bordas para linhas mais grossas se encontrarem
+  imgEroded = cv2.erode(imgDilated,kernel,iterations=7)         # erosão das bordas dilatadas para voltar a espessura normal
+  getContours(imgEroded,img)                                    # Chamando a função crida no início do código para inserir as bordas imgEroded em img
+ 
+  # Criando uma imagem com a soma das imagens de bordas detectadas:
+  if count == 0:                             # Iniciar uma imagem para acumulação
+    img_sum = imgEroded/totalFrame           # Imagem inicial
+    variMediana = np.zeros((totalFrame, 1))  # Vetor para receber as medianas da soleira ao longo de todo o vídeo
+ 
+ 
+ 
+  # Se estiver no penúltimo frame, criar a máscara no espectro e depois redimensionar para cm: 
+  if count == totalFrame-1:
+
+    np.savetxt(varpath+str(cannyMin*maxMinRatio)+'-'+str(cannyMin)+'.txt', variMediana, delimiter=' ')
+
+
+    while counterCircles<2:
+       cv2.setMouseCallback("Video Original", mousePoints)
+       cv2.waitKey(1)
+
+
+    else:
+       ptsScale = np.linalg.norm(circles[0] - circles[1])/5*2    # Calculando a distância entre os dois pontos da escala em px, dividindo por 5cm e multiplicado pelo fator de diminuição aplicado aos vídeos
+       print(ptsScale)
+
+       img_sum[img_sum> 25]=0
+       img_sum[img_sum< 1]=0
+       mat_sum = np.asarray(img_sum)
+
+ 
+       for i in range (5,95):
+        deteccoesColuna = img_sum[:,int(img.shape[1]/100*i)]                                                        # Cria um vetor que representa o valor dos pixels na posição i
+        posicaoDeteccoes = np.linspace(1,int(img.shape[0]),int(img.shape[0]),int(img.shape[0]))                     # Cria uma lista para representar a posição de onde estão vindo os sinais em y
+        # plt.plot(deteccoesColuna+img.shape[1]*i/100/ptsScale,(int(img.shape[0])-posicaoDeteccoes)/ptsScale)         # Plotar as detecções da posição i
+
+       # Obtendo as variáveis a serem plotadsa no Gráfico Final:
+       x = np.linspace(0, img.shape[1], img.shape[1])-(circles[0,0]*2)                # X inicia onde ocorrre o primeiro clique do mouse
+       y = np.linspace(img.shape[0], 0, img.shape[0])-(img.shape[0]-circles[0,1]*2)   # Y inicia onde ocorrre o primeiro clique do mouse
+       z = mat_sum                                                                    # Z equivale à img_sum como uma matriz (i, j, z=pixel)
+
+
+       # Detecções finais acima da soleira:
+       deteccoesSoleira = z[:,(circles[0, 0]*2)]
+       posicaoSoleira = (np.linspace(1,int(img.shape[0]),int(img.shape[0])))
+       
+       # Detecções acima da soleira ao longo do tempo:
+       frames = np.linspace(1, totalFrame, totalFrame)
+
+
+       # Criando o gráfico: 
+       fig, ax = plt.subplots()            
+
+
+       # Setando as configurações do gráfico:
+       ax.set_aspect(1)
+
+
+      # Criando um mapa de cores com base no valor dos pixels da imagem somada:
+       cmap = copy(plt.cm.Blues)
+       levels = np.linspace(1, 20, 13)
+       ax.contourf(x/ptsScale, y/ptsScale, z, cmap=cmap, levels=levels)    # Plotando a mancha das lâminas detectadasc como um mapa de cores
+
+
+       plt.show()
+ 
+  
+  else:                                                      # Se não for o pnúltimo frame
+    img_sum += imgEroded/totalFrame                          # += é para somar imgEroded em img_sum
+
+
+  count += 1                                                 # Somar mais um no contador "count"
+
+  # Redimensionando os vídeos:
+  imgResized = cv2.resize(img, (int(img.shape[1]/2), int(img.shape[0]/2)))
+  imgSumResized = cv2.resize(img_sum, (int(img.shape[1]/2), int(img.shape[0]/2)))
+  imgErodedResized = cv2.resize(imgEroded, (int(img.shape[1]/2), int(img.shape[0]/2)))
+  imgBlurResized = cv2.resize(imgBlur, (int(img.shape[1]/2), int(img.shape[0]/2)))
+  imgGrayResized = cv2.resize(imgGray, (int(img.shape[1]/2), int(img.shape[0]/2)))
+
+  
+  
+  # Reproduzindo os vídeos:
+  cv2.imshow("Video 120 fps Deteccao de Bordas", imgErodedResized)    # Detecção de bordas
+  cv2.imshow("Video Original", imgResized)                            # Vídeo original com bordas
+  cv2.imshow("Imagem Espectro", imgSumResized)                        # Epectro da detecção de bordas
+  cv2.imshow("Imagem Borrada", imgBlurResized)                        # Vídeo Borrado
+  cv2.imshow("Imagem Preto e Branco", imgGrayResized)                 # Vídeo Preto e Branco
+ 
+
+  print(f'{count*100/totalFrame:.2f}%')                               # Print o percentual de frames processados
+  
+  
+  if cv2.waitKey(1) & 0xFF ==ord ('q'):                               # Se a tecla "q" for apertada, o loop se encerra
+    break
